@@ -255,6 +255,51 @@ def solve_fixed_grid(vector_field, initial_condition, grid, solver) -> Solution:
         num_steps=jnp.arange(1.0, len(grid)),
     )
 
+def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver, use_filter=False) -> Solution:
+    """Solve an initial value problem on a fixed, pre-determined grid."""
+    # Compute the solution
+    initial_condition_arr = [initial_condition[0]] * len(vector_field)
+    posterior_arr = [initial_condition[0]] * len(vector_field)
+    output_scale_arr = [initial_condition[1]] * len(vector_field)
+    for i, vf in enumerate(vector_field):
+        _t, _tmp = _ivpsolve_impl.solve_fixed_grid(
+            jax.tree_util.Partial(vf),
+            (initial_condition_arr[i], output_scale_arr[i]),
+            grid=grid[i],
+            solver=solver,
+        )
+        posterior_arr[i], output_scale_arr[i] = _tmp
+        if i < len(vector_field)-1:
+            # get new initial condition as last value from previous posterior
+            initial_condition_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], posterior_arr[i])
+            output_scale_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], output_scale_arr[i])
+
+    # Stitch together smoothed solution (smoothing marginals computed in userfriendly output)
+    posterior_t0, output_scale_t0 = initial_condition # this just extracts the MarkovSeq part (no output scale)
+    posterior_t0_with_output_scale = initial_condition
+
+    if not use_filter:
+        for i in range(len(vector_field)-1,-1,-1):
+            # get MarkovSeq from beginning of current interval
+
+            _tmp = _userfriendly_output(posterior=posterior_arr[i], posterior_t0=posterior_t0)
+            marginals, posterior = _tmp
+    else:
+        posterior = tree_array_util.tree_concatenate(posterior_arr)
+        output_scale = tree_array_util.tree_concatenate(output_scale_arr)
+        # prepend the initial condition to the computed marginals
+        posterior = tree_array_util.tree_prepend(posterior_t0, posterior)
+        marginals = posterior
+
+    u = impl.hidden_model.qoi(marginals)
+    return Solution(
+        t=grid,
+        u=u,
+        marginals=marginals,
+        posterior=posterior,
+        output_scale=output_scale,
+        num_steps=jnp.arange(1.0, len(grid)),
+    )
 
 def _userfriendly_output(*, posterior, posterior_t0):
     if isinstance(posterior, markov.MarkovSeq):
