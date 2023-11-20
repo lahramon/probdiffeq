@@ -308,14 +308,15 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
         output_scale = tree_array_util.tree_concatenate(output_scale_arr)
         marginals = posterior
 
+    t = jnp.concatenate((*grid,))
     u = impl.hidden_model.qoi(marginals)
     return Solution(
-        t=jnp.concatenate((*grid,)),
+        t=t,
         u=u,
         marginals=marginals,
         posterior=posterior,
         output_scale=output_scale,
-        num_steps=jnp.arange(1.0, len(grid)),
+        num_steps=jnp.arange(1.0, len(t)),
     )
 
 def _userfriendly_output(*, posterior, posterior_t0):
