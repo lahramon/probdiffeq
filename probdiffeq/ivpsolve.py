@@ -250,12 +250,13 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
     Time grids should not have overlapping intervals."""
     # Compute the solution
     initial_condition_markovseq_arr = [initial_condition[0]] * len(vector_field)
-    output_scale_arr = [initial_condition[1]] * len(vector_field)
+    initial_condition_output_scale_arr = [initial_condition[1]] * len(vector_field)
+    output_scale_arr = [None] * len(vector_field)
     posterior_arr = [None] * len(vector_field)
     for i, vf in enumerate(vector_field):
         _t, _tmp = _ivpsolve_impl.solve_fixed_grid(
             jax.tree_util.Partial(vf),
-            (initial_condition_markovseq_arr[i], output_scale_arr[i]),
+            (initial_condition_markovseq_arr[i], initial_condition_output_scale_arr[i]),
             grid=grid[i],
             solver=solver,
         )
@@ -279,33 +280,37 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
 
             # condition on vector field at beginning of next interval
             error, observed, corr = solver.strategy.correction.estimate_error(state_strategy.hidden, None, vector_field=vector_field[i+1],t=t_predict)
-            hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, state_strategy.aux_corr)
+            # hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, corr)
+            # hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, state_strategy.aux_corr)
 
             # get new initial condition as last value from previous posterior
-            initial_condition_markovseq_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], posterior_arr[i])
-            u0_arr[i+1] = impl.hidden_model.qoi(initial_condition_markovseq_arr[i+1])
-            output_scale_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], output_scale_arr[i])
+            initial_condition_markovseq_arr[i+1] = state_strategy.hidden
+            initial_condition_output_scale_arr[i+1] = output_scale_transition
 
     # Stitch together smoothed solution (smoothing marginals computed in userfriendly output)
     posterior_t0, output_scale_t0 = initial_condition # this just extracts the MarkovSeq part (no output scale)
     posterior_t0_with_output_scale = initial_condition
 
     if not use_filter:
+        # TODO: Implement smoothing part
         for i in range(len(vector_field)-1,-1,-1):
             # get MarkovSeq from beginning of current interval
 
             _tmp = _userfriendly_output(posterior=posterior_arr[i], posterior_t0=posterior_t0)
             marginals, posterior = _tmp
     else:
+        # prepend the initial condition to the computed marginals for each subinterval
+        for i in range(len(vector_field)):
+            posterior_arr[i] = tree_array_util.tree_prepend(initial_condition_markovseq_arr[i], posterior_arr[i])
+            output_scale_arr[i] = jnp.hstack((initial_condition_output_scale_arr[i], output_scale_arr[i]))
+        # concatenate
         posterior = tree_array_util.tree_concatenate(posterior_arr)
         output_scale = tree_array_util.tree_concatenate(output_scale_arr)
-        # prepend the initial condition to the computed marginals
-        posterior = tree_array_util.tree_prepend(posterior_t0, posterior)
         marginals = posterior
 
     u = impl.hidden_model.qoi(marginals)
     return Solution(
-        t=grid,
+        t=jnp.concatenate((*grid,)),
         u=u,
         marginals=marginals,
         posterior=posterior,
