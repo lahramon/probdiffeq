@@ -279,7 +279,7 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
 
             # condition on vector field at beginning of next interval
             error, observed, corr = solver.strategy.correction.estimate_error(state_strategy.hidden, None, vector_field=vector_field[i+1],t=t_predict)
-            hidden, corr = self.correction.complete(hidden, state_strategy.aux_corr)
+            hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, state_strategy.aux_corr)
 
             # get new initial condition as last value from previous posterior
             initial_condition_markovseq_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], posterior_arr[i])
