@@ -255,13 +255,16 @@ def solve_fixed_grid(vector_field, initial_condition, grid, solver) -> Solution:
         num_steps=jnp.arange(1.0, len(grid)),
     )
 
-def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver, use_filter=False) -> Solution:
+def solve_fixed_grid_arr(vector_field:list, tcoeffs_fun_vf_u0_arr:list, grid:list, solver, u0, output_scale, use_filter=False) -> Solution:
     """Solve an initial value problem on a fixed, pre-determined grid."""
     # Compute the solution
-    initial_condition_arr = [initial_condition[0]] * len(vector_field)
-    posterior_arr = [initial_condition[0]] * len(vector_field)
-    output_scale_arr = [initial_condition[1]] * len(vector_field)
+    u0_arr = [u0] * len(vector_field)
+    output_scale_arr = [output_scale] * len(vector_field)
+    initial_condition_arr = [None] * len(vector_field)
+    posterior_arr = [None] * len(vector_field)
     for i, vf in enumerate(vector_field):
+        # tcoeffs = tcoeffs_fun_vf_u0_arr[i](vf, u0_arr[i])
+        initial_condition_arr[i], output_scale_arr[i] = solver.initial_condition(tcoeffs, output_scale=output_scale_arr[i])
         _t, _tmp = _ivpsolve_impl.solve_fixed_grid(
             jax.tree_util.Partial(vf),
             (initial_condition_arr[i], output_scale_arr[i]),
@@ -272,6 +275,7 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
         if i < len(vector_field)-1:
             # get new initial condition as last value from previous posterior
             initial_condition_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], posterior_arr[i])
+            u0_arr[i+1] = impl.hidden_model.qoi(initial_condition_arr[i+1])
             output_scale_arr[i+1] = jax.tree_util.tree_map(lambda s: s[-1, ...], output_scale_arr[i])
 
     # Stitch together smoothed solution (smoothing marginals computed in userfriendly output)

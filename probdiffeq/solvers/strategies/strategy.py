@@ -100,6 +100,7 @@ class Strategy:
     def predict_error(self, state: _State, /, *, dt, vector_field):
         """Predict the error of an upcoming step."""
         hidden, extra = self.extrapolation.begin(state.hidden, state.aux_extra, dt=dt)
+        # Amon Q: time update too late? Why is extrapolation split into begin and complete?
         error, observed, corr = self.correction.estimate_error(
             hidden, state.aux_corr, vector_field=vector_field, t=state.t
         )
