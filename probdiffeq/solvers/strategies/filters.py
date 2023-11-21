@@ -38,7 +38,7 @@ class _PreconFilter(strategy.ExtrapolationImpl):
         cond, (p, p_inv) = self.discretise(dt)
 
         if derivative_jump:
-            cond = impl.ssm_util.cond_nonsmooth_derivative_transition(self.num_derivatives, 2.0, noise_inf=1e3)
+            cond = impl.ssm_util.cond_nonsmooth_derivative_transition(self.num_derivatives, cond, noise_inf=1e6)
 
         rv_p = impl.ssm_util.preconditioner_apply(rv, p_inv)
 

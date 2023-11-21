@@ -22,16 +22,17 @@ class SSMUtilBackend(_ssm_util.SSMUtilBackend):
 
         return discretise
 
-    def cond_nonsmooth_derivative_transition(self, num_derivatives, output_scale, noise_inf=1e6):
+    def cond_nonsmooth_derivative_transition(self, num_derivatives, cond_orig, noise_inf=1e6):
         # A_identity = jnp.eye(num_derivatives + 1)
-        _, q_sqrtm_inf = ibm_util.system_matrices_1d(num_derivatives, noise_inf)
-        A, q_sqrtm_out = ibm_util.system_matrices_1d(num_derivatives, output_scale)
+        _, noise_inf_cholesky = ibm_util.system_matrices_1d(num_derivatives, noise_inf)
+        A, noise_orig = cond_orig
+        noise_orig_mean = noise_orig.mean
+        noise_orig_cholesky = noise_orig.cholesky
         # use infinite noise for the derivatives, assemble the noise matrix
-        q_sqrtm = q_sqrtm_out
-        q_sqrtm = q_sqrtm.at[1:,1:].set(q_sqrtm_inf[1:,1:])
+        noise_updt_cholesky = noise_orig_cholesky
+        noise_updt_cholesky = noise_updt_cholesky.at[1:,1:].set(noise_inf_cholesky[1:,1:])
 
-        q0 = jnp.zeros((num_derivatives + 1, *self.ode_shape))
-        noise = _normal.Normal(q0, q_sqrtm)
+        noise = _normal.Normal(noise_orig_mean, noise_updt_cholesky)
 
         # return cond_util.Conditional(A_identity, noise)
         return cond_util.Conditional(A, noise)
