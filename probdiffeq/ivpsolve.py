@@ -272,20 +272,24 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
             error, _observed, state_strategy = solver.strategy.predict_error(
                 state.strategy,
                 dt=dt,
-                vector_field=vector_field[i],
+                vector_field=vector_field[i+1],
+                derivative_jump=True
+            )
+            state_strategy_complete = solver.strategy.complete(
+                state_strategy, output_scale=state.output_scale
             )
 
-            state_predict = _common.State(strategy=state_strategy, output_scale=state.output_scale)
+            state_predict = _common.State(strategy=state_strategy_complete, output_scale=state.output_scale)
             t_predict, (posterior_predict, output_scale_predict) = solver.extract(state_predict)
 
             # condition on vector field at beginning of next interval
-            error, observed, corr = solver.strategy.correction.estimate_error(state_strategy.hidden, None, vector_field=vector_field[i+1],t=t_predict)
-            # hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, corr)
-            # hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, state_strategy.aux_corr)
+            # error, observed, corr = solver.strategy.correction.estimate_error(posterior_predict, None, vector_field=vector_field[i+1],t=t_predict)
+            # hidden_updt, corr_updt = solver.strategy.correction.complete(posterior_predict, corr)
+            # hidden_updt, corr_updt = solver.strategy.correction.complete(posterior_predict, state_strategy.aux_corr)
 
             # get new initial condition as last value from previous posterior
-            initial_condition_markovseq_arr[i+1] = state_strategy.hidden
-            initial_condition_output_scale_arr[i+1] = output_scale_transition
+            initial_condition_markovseq_arr[i+1] = posterior_predict
+            initial_condition_output_scale_arr[i+1] = output_scale_predict
 
     # Stitch together smoothed solution (smoothing marginals computed in userfriendly output)
     posterior_t0, output_scale_t0 = initial_condition # this just extracts the MarkovSeq part (no output scale)

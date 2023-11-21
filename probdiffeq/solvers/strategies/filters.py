@@ -34,8 +34,11 @@ class _PreconFilter(strategy.ExtrapolationImpl):
     def extract(self, hidden_state, _extra, /):
         return hidden_state
 
-    def begin(self, rv, _extra, /, dt):
+    def begin(self, rv, _extra, /, dt, derivative_jump=False):
         cond, (p, p_inv) = self.discretise(dt)
+
+        if derivative_jump:
+            cond = impl.ssm_util.cond_nonsmooth_derivative_transition(self.num_derivatives, 2.0, noise_inf=1e3)
 
         rv_p = impl.ssm_util.preconditioner_apply(rv, p_inv)
 
