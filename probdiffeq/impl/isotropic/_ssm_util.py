@@ -29,8 +29,16 @@ class SSMUtilBackend(_ssm_util.SSMUtilBackend):
         noise_orig_mean = noise_orig.mean
         noise_orig_cholesky = noise_orig.cholesky
         # use infinite noise for the derivatives, assemble the noise matrix
-        noise_updt_cholesky = noise_orig_cholesky
-        noise_updt_cholesky = noise_updt_cholesky.at[1:,1:].set(noise_inf_cholesky[1:,1:])
+        # approach 1: off-diagonals original
+        # noise_updt_cholesky = noise_orig_cholesky
+        # noise_updt_cholesky = noise_updt_cholesky.at[1:,1:].set(noise_inf_cholesky[1:,1:])
+        # approach 2: off-diagonals infinite
+        noise_updt_cholesky = noise_inf_cholesky
+        noise_updt_cholesky = noise_updt_cholesky.at[0,0].set(noise_orig_cholesky[0,0])
+        # approach 3: off-diagonals zero
+        # noise_updt_cholesky = jnp.zeros((num_derivatives + 1, num_derivatives + 1))
+        # noise_updt_cholesky = noise_updt_cholesky.at[0,0].set(noise_orig_cholesky[0,0])
+        # noise_updt_cholesky = noise_updt_cholesky.at[1:,1:].set(noise_inf_cholesky[1:,1:])
 
         noise = _normal.Normal(noise_orig_mean, noise_updt_cholesky)
 
