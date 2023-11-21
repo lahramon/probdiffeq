@@ -274,18 +274,61 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
                 dt=dt,
                 vector_field=vector_field[i],
             )
+            error_f, _observed_f, state_strategy_f = solver.strategy.predict_error(
+                state.strategy,
+                dt=dt,
+                vector_field=vector_field[i+1],
+            )
+            output_scale_inf = jnp.array(1e9)
+            
+            state_strategy_complete = solver.strategy.complete(
+                state_strategy,
+                output_scale=output_scale_inf
+            )
 
-            state_predict = _common.State(strategy=state_strategy, output_scale=state.output_scale)
+            # one normal solver step looks like this:
+            state_strategy = state.strategy
+            hidden_begin, extra_begin = solver.strategy.extrapolation.begin(state_strategy.hidden, state_strategy.aux_extra, dt=dt)
+            t = state_strategy.t + dt
+            error_begin, observed_begin, corr_begin = solver.strategy.correction.estimate_error(
+                hidden_begin, state_strategy.aux_corr, vector_field=vector_field[i+1], t=t
+            )
+            state_begin = _State(t=t, hidden=hidden_begin, aux_extra=extra_begin, aux_corr=corr_begin)
+            hidden_compl_1, extra_compl = solver.strategy.extrapolation.complete(
+                state_begin.hidden, state_begin.aux_extra, output_scale=output_scale_transition
+            )
+            hidden_compl_2, corr_compl = solver.strategy.correction.complete(hidden_compl_1, state_begin.aux_corr)
+            state_updt = _State(t=state_begin.t, hidden=hidden_compl_2, aux_extra=extra_compl, aux_corr=corr_compl)
+
+            # updated:
+            state_strategy = state.strategy
+            hidden_begin, extra_begin = solver.strategy.extrapolation.begin(state_strategy.hidden, state_strategy.aux_extra, dt=dt)
+            t = state_strategy.t + dt
+            error_begin, observed_begin, corr_begin = solver.strategy.correction.estimate_error(
+                hidden_begin, state_strategy.aux_corr, vector_field=vector_field[i], t=t
+            )
+            state_begin = _State(t=t, hidden=hidden_begin, aux_extra=extra_begin, aux_corr=corr_begin)
+            hidden_compl_1, extra_compl = solver.strategy.extrapolation.complete(
+                state_begin.hidden, state_begin.aux_extra, output_scale=output_scale_transition
+            )
+            # until here everything should be fine
+            hidden_compl_2, corr_compl = solver.strategy.correction.complete(hidden_compl_1, state_begin.aux_corr)
+            state_updt = _State(t=state_begin.t, hidden=hidden_compl_2, aux_extra=extra_compl, aux_corr=corr_compl)
+
+            # state_predict = _common.State(strategy=state_strategy, output_scale=state.output_scale)
+            state_predict = _common.State(strategy=state_strategy, output_scale=output_scale_inf)
             t_predict, (posterior_predict, output_scale_predict) = solver.extract(state_predict)
 
+            # set infinite noise for vector field prediction (nonsmooth -> could be anything)
+            posterior_predict.cholesky = posterior_predict.cholesky.at[-1,-1].set(1e9)
             # condition on vector field at beginning of next interval
-            error, observed, corr = solver.strategy.correction.estimate_error(state_strategy.hidden, None, vector_field=vector_field[i+1],t=t_predict)
+            error, observed, corr = solver.strategy.correction.estimate_error(posterior_predict, None, vector_field=vector_field[i+1],t=t_predict)
             # hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, corr)
             # hidden_updt, corr_updt = solver.strategy.correction.complete(state_strategy.hidden, state_strategy.aux_corr)
 
             # get new initial condition as last value from previous posterior
-            initial_condition_markovseq_arr[i+1] = state_strategy.hidden
-            initial_condition_output_scale_arr[i+1] = output_scale_transition
+            initial_condition_markovseq_arr[i+1] = posterior_predict
+            initial_condition_output_scale_arr[i+1] = output_scale_predict
 
     # Stitch together smoothed solution (smoothing marginals computed in userfriendly output)
     posterior_t0, output_scale_t0 = initial_condition # this just extracts the MarkovSeq part (no output scale)
