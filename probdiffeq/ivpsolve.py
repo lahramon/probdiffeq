@@ -297,11 +297,15 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
 
     if not use_filter:
         # TODO: Implement smoothing part
+        posterior_smooth = [None] * len(vector_field)
+        marginals_smooth = [None] * len(vector_field)
         for i in range(len(vector_field)-1,-1,-1):
             # get MarkovSeq from beginning of current interval
-
-            _tmp = _userfriendly_output(posterior=posterior_arr[i], posterior_t0=posterior_t0)
-            marginals, posterior = _tmp
+            _tmp = _userfriendly_output(posterior=posterior_arr[i], posterior_t0=initial_condition_markovseq_arr[i])
+            marginals_smooth[i], posterior_smooth[i] = _tmp
+        
+        posterior = tree_array_util.tree_concatenate(posterior_smooth)
+        marginals = tree_array_util.tree_concatenate(marginals_smooth)
     else:
         # prepend the initial condition to the computed marginals for each subinterval
         for i in range(len(vector_field)):
@@ -309,9 +313,9 @@ def solve_fixed_grid_arr(vector_field:list, initial_condition, grid:list, solver
             output_scale_arr[i] = jnp.hstack((initial_condition_output_scale_arr[i], output_scale_arr[i]))
         # concatenate
         posterior = tree_array_util.tree_concatenate(posterior_arr)
-        output_scale = tree_array_util.tree_concatenate(output_scale_arr)
         marginals = posterior
 
+    output_scale = tree_array_util.tree_concatenate(output_scale_arr)
     t = jnp.concatenate((*grid,))
     u = impl.hidden_model.qoi(marginals)
     return Solution(
