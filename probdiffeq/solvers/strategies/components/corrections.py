@@ -4,6 +4,7 @@ import abc
 import functools
 
 import jax.numpy as jnp
+import numpy as np
 
 from probdiffeq.impl import impl
 from probdiffeq.solvers.strategies.components import cubature
@@ -54,7 +55,7 @@ class _ODEConstraintTaylor(Correction):
         def f_wrapped(s):
             return vector_field(*s, t=t)
 
-        if mean_linearize is jnp.nan:
+        if mean_linearize is np.nan:
             mean_linearize = hidden_state.mean
             print('you')
         else:
