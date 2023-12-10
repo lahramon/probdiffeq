@@ -54,10 +54,13 @@ class _ODEConstraintTaylor(Correction):
         def f_wrapped(s):
             return vector_field(*s, t=t)
 
-        if mean_linearize is None:
+        if mean_linearize is jnp.nan:
             mean_linearize = hidden_state.mean
-            
-        A, b = self.linearise(f_wrapped, hidden_state.mean)
+            print('you')
+        else:
+            print(f'mean linearize arrived in estimate_error: {mean_linearize}')
+
+        A, b = self.linearise(f_wrapped, mean_linearize)
         observed = impl.transform.marginalise(hidden_state, (A, b))
 
         error_estimate = _estimate_error(observed)

@@ -99,12 +99,13 @@ def solve_fixed_grid_ieks(vector_field, initial_condition, *, grid, solver, mean
         def body_fn(s, dt_and_mean_linearize):
             print(dt_and_mean_linearize)
             dt = dt_and_mean_linearize[0]
-            mean_linearize = dt_and_mean_linearize[1]
+            mean_linearize = dt_and_mean_linearize[1:]
             _error, s_new = solver.step(state=s, vector_field=vector_field, dt=dt, mean_linearize=mean_linearize)
             return s_new, s_new
 
         # xs = jnp.array(list(zip(jnp.diff(grid), mean_linearize_arr)))
-        xs = jnp.array([[d,m] for d,m in zip(jnp.diff(grid), mean_linearize_arr)])
+        # xs = jnp.array([[d,m] for d,m in zip(jnp.diff(grid), mean_linearize_arr)])
+        xs = jnp.array([jnp.hstack((d,m)) for d,m in zip(jnp.diff(grid), mean_linearize_arr[1:,:])])
 
     t0 = grid[0]
     state0 = solver.init(t0, initial_condition)

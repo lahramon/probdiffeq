@@ -2,6 +2,7 @@
 import abc
 
 import jax
+import jax.numpy as jnp
 
 from probdiffeq import _interp
 from probdiffeq.impl import impl
@@ -142,7 +143,7 @@ class _CalibratedSolver(_solver.Solver):
         calib_state = self.calibration.init(output_scale)
         return _common.State(strategy=state_strategy, output_scale=calib_state)
 
-    def step(self, state: _common.State, *, vector_field, dt) -> _common.State:
+    def step(self, state: _common.State, *, vector_field, dt, mean_linearize=jnp.nan) -> _common.State:
         # TODO: hand-over mean here next to dt
         return self.impl_step(
             state,
@@ -150,6 +151,7 @@ class _CalibratedSolver(_solver.Solver):
             dt=dt,
             strategy=self.strategy,
             calibration=self.calibration,
+            mean_linearize=mean_linearize
         )
 
     def extract(self, state: _common.State, /):
