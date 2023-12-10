@@ -97,12 +97,14 @@ class Strategy:
         rv, corr = self.correction.init(rv)
         return _State(t=t, hidden=rv, aux_extra=extra, aux_corr=corr)
 
-    def predict_error(self, state: _State, /, *, dt, vector_field, derivative_jump=False):
+    def predict_error(self, state: _State, /, *, dt, vector_field, mean_linearize=None, derivative_jump=False):
         """Predict the error of an upcoming step."""
+        # TODO: extra argument for mean
         hidden, extra = self.extrapolation.begin(state.hidden, state.aux_extra, dt=dt, derivative_jump=derivative_jump)
         t = state.t + dt
         error, observed, corr = self.correction.estimate_error(
-            hidden, state.aux_corr, vector_field=vector_field, t=t
+            # TODO: change hidden to given linearization point
+            hidden, state.aux_corr, vector_field=vector_field, t=t, mean_linearize=mean_linearize
         )
         state = _State(t=t, hidden=hidden, aux_extra=extra, aux_corr=corr)
         return error, observed, state

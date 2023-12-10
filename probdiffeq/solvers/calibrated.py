@@ -24,10 +24,12 @@ def mle(strategy):
     )
 
 
-def _step_mle(state, /, dt, vector_field, *, strategy, calibration):
+def _step_mle(state, /, dt, vector_field, *, strategy, calibration, mean_linearize=None):
+    # TODO: this one should receive linearize mean as argument
     output_scale_prior, _calibrated = calibration.extract(state.output_scale)
+    # TODO: hand-over mean to predict-error
     error, _, state_strategy = strategy.predict_error(
-        state.strategy, dt=dt, vector_field=vector_field
+        state.strategy, dt=dt, vector_field=vector_field, mean_linearize=mean_linearize
     )
 
     state_strategy = strategy.complete(state_strategy, output_scale=output_scale_prior)
@@ -141,6 +143,7 @@ class _CalibratedSolver(_solver.Solver):
         return _common.State(strategy=state_strategy, output_scale=calib_state)
 
     def step(self, state: _common.State, *, vector_field, dt) -> _common.State:
+        # TODO: hand-over mean here next to dt
         return self.impl_step(
             state,
             vector_field=vector_field,

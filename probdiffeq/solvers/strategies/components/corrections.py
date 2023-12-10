@@ -50,10 +50,13 @@ class _ODEConstraintTaylor(Correction):
         obs_like = impl.prototypes.observed()
         return ssv, obs_like
 
-    def estimate_error(self, hidden_state, _corr, /, vector_field, t):
+    def estimate_error(self, hidden_state, _corr, /, vector_field, t, mean_linearize=None):
         def f_wrapped(s):
             return vector_field(*s, t=t)
 
+        if mean_linearize is None:
+            mean_linearize = hidden_state.mean
+            
         A, b = self.linearise(f_wrapped, hidden_state.mean)
         observed = impl.transform.marginalise(hidden_state, (A, b))
 

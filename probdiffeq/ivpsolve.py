@@ -226,7 +226,31 @@ def solve_fixed_grid(vector_field, initial_condition, grid, solver) -> Solution:
     """Solve an initial value problem on a fixed, pre-determined grid."""
     # Compute the solution
     _t, (posterior, output_scale) = _ivpsolve_impl.solve_fixed_grid(
+        # TODO: hand-over mean linearize array
         jax.tree_util.Partial(vector_field), initial_condition, grid=grid, solver=solver
+    )
+
+    # I think the user expects marginals, so we compute them here
+    posterior_t0, *_ = initial_condition
+    _tmp = _userfriendly_output(posterior=posterior, posterior_t0=posterior_t0)
+    marginals, posterior = _tmp
+
+    u = impl.hidden_model.qoi(marginals)
+    return Solution(
+        t=grid,
+        u=u,
+        marginals=marginals,
+        posterior=posterior,
+        output_scale=output_scale,
+        num_steps=jnp.arange(1.0, len(grid)),
+    )
+
+def solve_fixed_grid_ieks(vector_field, initial_condition, grid, solver, mean_linearize_arr) -> Solution:
+    """Solve an initial value problem on a fixed, pre-determined grid."""
+    # Compute the solution
+    _t, (posterior, output_scale) = _ivpsolve_impl.solve_fixed_grid_ieks(
+        # TODO: hand-over mean linearize array
+        jax.tree_util.Partial(vector_field), initial_condition, grid=grid, solver=solver, mean_linearize_arr=mean_linearize_arr
     )
 
     # I think the user expects marginals, so we compute them here
