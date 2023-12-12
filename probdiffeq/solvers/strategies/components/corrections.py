@@ -57,9 +57,10 @@ class _ODEConstraintTaylor(Correction):
 
         if mean_linearize is np.nan:
             mean_linearize = hidden_state.mean
-            print('you')
+            # print('you')
         else:
-            print(f'mean linearize arrived in estimate_error: {mean_linearize}')
+            pass
+            # print(f'mean linearize arrived in estimate_error: {mean_linearize}')
 
         A, b = self.linearise(f_wrapped, mean_linearize)
         observed = impl.transform.marginalise(hidden_state, (A, b))
